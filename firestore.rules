@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// Regras do Firestore do app Gestão de Eventos (projeto geranium-eventos).
+// Para aplicar: Console do Firebase > Firestore Database > Regras > colar este arquivo > Publicar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // E-mails da equipe. Precisa bater com EMAILS_EQUIPE em src/firebase.js.
+    function equipe() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['thiagovinicius7@gmail.com', 'luanachb@gmail.com'];
+    }
+
+    // A equipe lê e escreve tudo.
+    match /{document=**} {
+      allow read, write: if equipe();
+    }
+
+    // ---------- Acesso público (formulários sem login) ----------
+
+    // Horários de visita e dias especiais: o link de agendamento precisa ler.
+    match /config/agenda {
+      allow read: if true;
+    }
+    match /diasEspeciais/{dia} {
+      allow read: if true;
+    }
+
+    // Horários ocupados por dia (só a lista de horas, sem dados pessoais).
+    match /ocupacao/{dia} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['horas'])
+        && request.resource.data.horas is list
+        && request.resource.data.horas.size() == 1;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['horas'])
+        && request.resource.data.horas.size() == resource.data.horas.size() + 1
+        && request.resource.data.horas.hasAll(resource.data.horas);
+    }
+
+    // Visitante agenda pelo link: só pode criar, nunca ler a agenda.
+    match /visitas/{id} {
+      allow create: if request.resource.data.origem == 'site'
+        && request.resource.data.status == 'agendada'
+        && request.resource.data.categoria == 'visita'
+        && request.resource.data.keys().hasOnly(['nome', 'telefone', 'email', 'tipoEvento', 'dataPrevista', 'observacoes', 'data', 'hora', 'origem', 'categoria', 'status', 'criadaEm'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() < 200;
+    }
+
+    // Fichas do cliente: abre só quem tem o link; responde enquanto estiver aberta.
+    match /fichas/{token} {
+      allow get: if true;
+      allow update: if resource.data.aberta == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['respostas', 'enviadaEm', 'aberta', 'rascunho']);
+    }
+  }
+}
