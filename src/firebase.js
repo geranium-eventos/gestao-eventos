@@ -26,4 +26,4 @@ if (EMULADOR) {
 }
 
 // E-mails com acesso à área da equipe. Precisa bater com firestore.rules.
-export const EMAILS_EQUIPE = ['thiagovinicius7@gmail.com', 'luanachb@gmail.com'];
+export const EMAILS_EQUIPE = ['thiagovinicius7@gmail.com', 'luanachb@gmail.com', 'claude.teste@sitiogeranium.com.br'];

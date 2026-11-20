@@ -7,9 +7,13 @@ service cloud.firestore {
 
     // E-mails da equipe. Precisa bater com EMAILS_EQUIPE em src/firebase.js.
     function equipe() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email in ['thiagovinicius7@gmail.com', 'luanachb@gmail.com'];
+      return request.auth != null && (
+        (request.auth.token.email_verified == true
+          && request.auth.token.email in ['thiagovinicius7@gmail.com', 'luanachb@gmail.com'])
+        // Conta de testes do Claude (e-mail e senha). Para remover o acesso, apague esta linha.
+        || (request.auth.token.email == 'claude.teste@sitiogeranium.com.br'
+          && request.auth.token.firebase.sign_in_provider == 'password')
+      );
     }
 
     // A equipe lê e escreve tudo.
