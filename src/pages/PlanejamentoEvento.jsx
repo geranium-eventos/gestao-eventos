@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useBlocker, useParams } from 'react-router-dom';
 import { Carregando, Seg, copiar, useAviso } from '../components/base';
 import { Campo } from '../components/forms';
 import { RespostasTecnica } from '../components/fichas';
@@ -15,6 +15,11 @@ export function qtdSeguranca(empresa, convidados) {
   return faixa ? Number(faixa.qtd) : null;
 }
 
+function doEvento(ev) {
+  const base = ev.planejamento || {};
+  return { sitio: [...(base.sitio || []), '', '', ''].slice(0, 3), segurancaId: base.segurancaId || '', geradorId: base.geradorId || '', mobiliario: base.mobiliario || '', obs: base.obs || '', quitado: !!ev.quitado };
+}
+
 export default function PlanejamentoEvento() {
   const { id } = useParams();
   const aviso = useAviso();
@@ -25,19 +30,41 @@ export default function PlanejamentoEvento() {
   const geradores = useColecao('geradores');
   const [p, setP] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const original = useRef(null); // como estava da última vez que foi carregado ou salvo
+  const idCarregado = useRef(null);
+  const alterado = !!p && JSON.stringify(p) !== original.current;
 
+  // Carrega do evento; ao trocar de evento recomeça; se ninguém mexeu aqui, acompanha o que outra pessoa salvou.
   useEffect(() => {
-    if (ev && p === null) {
-      const base = ev.planejamento || {};
-      setP({ sitio: [...(base.sitio || []), '', '', ''].slice(0, 3), segurancaId: base.segurancaId || '', geradorId: base.geradorId || '', mobiliario: base.mobiliario || '', obs: base.obs || '', quitado: !!ev.quitado });
+    if (!ev) return;
+    if (idCarregado.current !== id || !alterado) {
+      const novo = doEvento(ev);
+      original.current = JSON.stringify(novo);
+      idCarregado.current = id;
+      setP(novo);
     }
-  }, [ev, p]);
+  }, [ev, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Avisa antes de sair da tela (menu, links, voltar) com alterações não salvas.
+  const bloqueio = useBlocker(({ currentLocation, nextLocation }) => alterado && currentLocation.pathname !== nextLocation.pathname);
+  useEffect(() => {
+    if (bloqueio.state !== 'blocked') return;
+    if (window.confirm('Você tem alterações não salvas no planejamento. Sair mesmo assim?')) bloqueio.proceed();
+    else bloqueio.reset();
+  }, [bloqueio]);
+  // Avisa ao fechar ou recarregar a aba.
+  useEffect(() => {
+    if (!alterado) return undefined;
+    const avisar = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [alterado]);
 
   const empresa = useMemo(() => (segurancas || []).find((s) => s.id === p?.segurancaId), [segurancas, p]);
   const qtd = qtdSeguranca(empresa, ev?.convidados);
   const ft = (fichas || []).find((f) => f.id === ev?.fichaTecnica?.token);
 
-  if (ev === undefined || !p || !colaboradores || !segurancas || !geradores || !fichas) return <div className="pagina"><Carregando /></div>;
+  if (ev === undefined || (ev && (!p || idCarregado.current !== id)) || !colaboradores || !segurancas || !geradores || !fichas) return <div className="pagina"><Carregando /></div>;
   if (ev === null) return <div className="pagina"><div className="card vazio">Evento não encontrado.</div></div>;
 
   const mes = ev.data ? nomeMes(Number(ev.data.slice(0, 4)), Number(ev.data.slice(5, 7)) - 1).split(' ')[0].toLowerCase() : '';
@@ -48,9 +75,14 @@ export default function PlanejamentoEvento() {
       quitado: p.quitado,
     };
     if (ev.status === 'fechado') dados.status = 'planejamento';
-    await atualizarEvento(ev.id, dados, 'Planejamento atualizado');
+    try {
+      await atualizarEvento(ev.id, dados, 'Planejamento atualizado');
+      original.current = JSON.stringify(p);
+      aviso('Planejamento salvo');
+    } catch (e) {
+      aviso('Não foi possível salvar. Verifique a internet e tente de novo.');
+    }
     setSalvando(false);
-    aviso('Planejamento salvo');
   };
   const setSitio = (i, v) => setP({ ...p, sitio: p.sitio.map((x, j) => (j === i ? v : x)) });
 
@@ -65,6 +97,7 @@ export default function PlanejamentoEvento() {
         </div>
         <div className="acoes">
           <Link to={`/os/${ev.id}`} className="btn btn-contorno">Imprimir O.S.</Link>
+          {alterado && !salvando && <span className="small" style={{ color: 'var(--terracota-texto)', fontWeight: 600, alignSelf: 'center' }}>Alterações não salvas</span>}
           <button className="btn btn-primario" onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar planejamento'}</button>
         </div>
       </div>
