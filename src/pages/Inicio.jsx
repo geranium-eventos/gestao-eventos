@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Carregando, Pill, useUsuario } from '../components/base';
 import { EventoForm, VisitaForm } from '../components/forms';
+import { EnvioFichaTecnica, envioFichaPendente, resumoEnvios } from '../components/EnvioFichaTecnica';
 import { criarEventoDaVisita, useColecao, useConfig } from '../lib/db';
 import {
   ATIVOS, CONFIRMADOS, diasAte, estiloVisita, fimDeSemanaDoMes, fmtData, fmtLonga, fotoDoEvento, hojeISO,
@@ -23,6 +24,7 @@ export default function Inicio() {
   const [novaVisita, setNovaVisita] = useState(false);
   const [novoEvento, setNovoEvento] = useState(false);
   const [visitaAberta, setVisitaAberta] = useState(null);
+  const [envioFicha, setEnvioFicha] = useState(null); // id do evento
   const hoje = hojeISO();
 
   const dados = useMemo(() => {
@@ -61,7 +63,11 @@ export default function Inicio() {
       if (CONFIRMADOS.includes(e.status) && e.status !== 'realizado' && dias !== null) {
         if (dias < 0) atencao.push({ id: `r${e.id}`, nome: rot, motivo: 'A data já passou: marcar como realizado', acao: 'Abrir evento', to: `/eventos/${e.id}` });
         else {
-          if (dias <= 60 && !e.fichaTecnica?.token) atencao.push({ id: `ft${e.id}`, nome: rot, motivo: 'Ficha técnica ainda não foi enviada aos clientes', acao: 'Abrir evento', to: `/eventos/${e.id}` });
+          const ftRecebida = !!(e.fichaTecnica?.token && fichaPorToken[e.fichaTecnica.token]?.enviadaEm);
+          if (dias <= 30 && !ftRecebida && envioFichaPendente(e)) {
+            const feito = resumoEnvios(e);
+            atencao.push({ id: `ftw${e.id}`, nome: rot, motivo: `${dias === 0 ? 'É hoje' : dias === 1 ? 'Falta 1 dia' : `Faltam ${dias} dias`}: enviar a ficha técnica ${e.tipo === 'Casamento' ? 'aos noivos' : 'ao contratante'}${e.planejamento?.cerimonialTelefone ? ' e ao cerimonial' : ''}${feito ? ` · ${feito}` : ''}`, acao: 'Enviar pelo WhatsApp', envio: e.id });
+          } else if (dias > 30 && dias <= 60 && !e.fichaTecnica?.token) atencao.push({ id: `ft${e.id}`, nome: rot, motivo: 'Ficha técnica ainda não foi enviada aos clientes', acao: 'Abrir evento', to: `/eventos/${e.id}` });
           const p = e.planejamento || {};
           if (dias <= 30 && (!(p.sitio || []).filter(Boolean).length || !p.segurancaId)) atencao.push({ id: `p${e.id}`, nome: rot, motivo: 'Equipe do sítio ou segurança não definida', acao: 'Planejar', to: `/planejamento/${e.id}` });
         }
@@ -161,13 +167,14 @@ export default function Inicio() {
           <div key={p.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, padding: '12px 0', borderTop: '1px solid var(--creme-2)' }}>
             <span style={{ width: 10, height: 10, borderRadius: 99, background: 'var(--terracota)' }} />
             <span style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column' }}><b>{p.nome}</b><span className="small muted">{p.motivo}</span></span>
-            {p.to ? <Link to={p.to} className="btn btn-contorno btn-sm">{p.acao}</Link> : <button className="btn btn-contorno btn-sm" onClick={() => setVisitaAberta(p.visita)}>{p.acao}</button>}
+            {p.to ? <Link to={p.to} className="btn btn-contorno btn-sm">{p.acao}</Link> : p.envio ? <button className="btn btn-primario btn-sm" onClick={() => setEnvioFicha(p.envio)}>{p.acao}</button> : <button className="btn btn-contorno btn-sm" onClick={() => setVisitaAberta(p.visita)}>{p.acao}</button>}
           </div>
         ))}
       </section>
 
       {novaVisita && <VisitaForm onFechar={() => setNovaVisita(false)} />}
       {novoEvento && <EventoForm onFechar={() => setNovoEvento(false)} onCriado={(id) => navegar(`/eventos/${id}`)} />}
+      {envioFicha && eventos.find((e) => e.id === envioFicha) && <EnvioFichaTecnica ev={eventos.find((e) => e.id === envioFicha)} onFechar={() => setEnvioFicha(null)} />}
       {visitaAberta && <VisitaForm visita={visitaAberta} onFechar={() => setVisitaAberta(null)} onCriarEvento={criarEventoDe} />}
     </main>
   );

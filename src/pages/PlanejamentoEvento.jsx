@@ -3,6 +3,7 @@ import { Link, useBlocker, useParams } from 'react-router-dom';
 import { Carregando, Seg, copiar, useAviso } from '../components/base';
 import { Campo } from '../components/forms';
 import { RespostasTecnica } from '../components/fichas';
+import { resumoEnvios } from '../components/EnvioFichaTecnica';
 import {
   atualizarEvento, criarFicha, linkFicha, reabrirFicha, useColecao, useDoc,
 } from '../lib/db';
@@ -17,7 +18,7 @@ export function qtdSeguranca(empresa, convidados) {
 
 function doEvento(ev) {
   const base = ev.planejamento || {};
-  return { sitio: [...(base.sitio || []), '', '', ''].slice(0, 3), segurancaId: base.segurancaId || '', geradorId: base.geradorId || '', mobiliario: base.mobiliario || '', obs: base.obs || '', quitado: !!ev.quitado };
+  return { sitio: [...(base.sitio || []), '', '', ''].slice(0, 3), segurancaId: base.segurancaId || '', geradorId: base.geradorId || '', mobiliario: base.mobiliario || '', obs: base.obs || '', cerimonialNome: base.cerimonialNome || '', cerimonialTelefone: base.cerimonialTelefone || '', quitado: !!ev.quitado };
 }
 
 export default function PlanejamentoEvento() {
@@ -71,7 +72,7 @@ export default function PlanejamentoEvento() {
   const salvar = async () => {
     setSalvando(true);
     const dados = {
-      planejamento: { sitio: p.sitio.filter(Boolean), segurancaId: p.segurancaId, segurancaQtd: qtd || '', geradorId: p.geradorId, mobiliario: p.mobiliario, obs: p.obs },
+      planejamento: { sitio: p.sitio.filter(Boolean), segurancaId: p.segurancaId, segurancaQtd: qtd || '', geradorId: p.geradorId, mobiliario: p.mobiliario, obs: p.obs, cerimonialNome: p.cerimonialNome, cerimonialTelefone: p.cerimonialTelefone },
       quitado: p.quitado,
     };
     if (ev.status === 'fechado') dados.status = 'planejamento';
@@ -136,6 +137,10 @@ export default function PlanejamentoEvento() {
           </section>
           <section className="card">
             <h2>Detalhes internos</h2>
+            <div className="campos" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <Campo rotulo="Cerimonial"><input value={p.cerimonialNome} onChange={(e) => setP({ ...p, cerimonialNome: e.target.value })} placeholder="Nome ou empresa" /></Campo>
+              <Campo rotulo="WhatsApp do cerimonial"><input type="tel" value={p.cerimonialTelefone} onChange={(e) => setP({ ...p, cerimonialTelefone: e.target.value })} placeholder="(61) 9 0000-0000" /></Campo>
+            </div>
             <Campo rotulo="Mobiliário"><input value={p.mobiliario} onChange={(e) => setP({ ...p, mobiliario: e.target.value })} placeholder="Locação, quantidades…" /></Campo>
             <Campo rotulo="Observações para a equipe"><textarea value={p.obs} onChange={(e) => setP({ ...p, obs: e.target.value })} placeholder="Acessibilidade, restrições, horários extras…" /></Campo>
             <div className="card-cab">
@@ -147,7 +152,7 @@ export default function PlanejamentoEvento() {
 
         <section className="card col-3" style={{ flex: '1 1 420px' }}>
           <div className="card-cab">
-            <div><h2>Ficha técnica</h2><span className="small muted">{ft?.enviadaEm ? 'Respondida pelos noivos' : ft ? 'Aguardando os noivos' : 'Ainda não enviada'}</span></div>
+            <div><h2>Ficha técnica</h2><span className="small muted">{ft?.enviadaEm ? 'Respondida pelos noivos' : ft ? 'Aguardando os noivos' : 'Ainda não enviada'}</span>{resumoEnvios(ev) && <><br /><span className="small muted">{resumoEnvios(ev)}</span></>}</div>
             {ft?.enviadaEm && !ft.aberta && <button className="btn btn-claro btn-sm" onClick={async () => { await reabrirFicha(ft.id); await copiar(linkFicha(ft.id), aviso, 'Ficha reaberta e link copiado'); }}>Reabrir para os noivos</button>}
             {ft && (!ft.enviadaEm || ft.aberta) && <button className="btn btn-claro btn-sm" onClick={() => copiar(linkFicha(ft.id), aviso)}>Copiar link</button>}
             {!ft && <button className="btn btn-contorno btn-sm" onClick={async () => { const t = await criarFicha(ev, 'tecnica'); await copiar(linkFicha(t), aviso, 'Link criado e copiado'); }}>Gerar link para os noivos</button>}
