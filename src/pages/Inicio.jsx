@@ -145,7 +145,7 @@ export default function Inicio() {
         <section className="card stat">
           <span className="eyebrow">Visitas no mês</span>
           <span className="num">{visitasMes.length}</span>
-          <span className="small muted">{visitasMes.filter((v) => v.status === 'evento').length} viraram evento · {perdidas.length} não fecharam{topMotivo ? ` (mais comum: ${topMotivo[0].toLowerCase()})` : ''}</span>
+          <span className="small muted">{(() => { const n = visitasMes.filter((v) => v.status === 'evento').length; return `${n} ${n === 1 ? 'virou' : 'viraram'} evento`; })()} · {perdidas.length} não {perdidas.length === 1 ? 'fechou' : 'fecharam'}{topMotivo ? ` (mais comum: ${topMotivo[0].toLowerCase()})` : ''}</span>
         </section>
         <section className="card stat">
           <span className="eyebrow">{nomeMes(prox.getFullYear(), prox.getMonth()).split(' ')[0]} reservado</span>

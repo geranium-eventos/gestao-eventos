@@ -106,7 +106,7 @@ export default function Agenda() {
             })}
           </div>
           <div className="chips small muted" style={{ marginTop: 6 }}>
-            <span>{resumo.total} visitas no mês</span>·<span>{resumo.evento} viraram evento</span>·<span>{resumo.perdidas} não fecharam</span>·<span>{resumo.tecnicas} técnicas/prévias</span>
+            <span>{resumo.total} visitas no mês</span>·<span>{resumo.evento} {resumo.evento === 1 ? 'virou' : 'viraram'} evento</span>·<span>{resumo.perdidas} não {resumo.perdidas === 1 ? 'fechou' : 'fecharam'}</span>·<span>{resumo.tecnicas} técnicas/prévias</span>
           </div>
         </section>
 
